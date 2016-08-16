@@ -1,5 +1,8 @@
 #ifdef USE_OPENCV
 #include <opencv2/core/core.hpp>
+#include <opencv2/highgui/highgui.hpp>
+#include <opencv2/highgui/highgui_c.h>
+#include <opencv2/imgproc/imgproc.hpp>
 #endif  // USE_OPENCV
 
 #include <string>
@@ -52,6 +55,7 @@ void DataTransformer<Dtype>::Transform(const Datum& datum,
   const bool has_mean_file = param_.has_mean_file();
   const bool has_uint8 = data.size() > 0;
   const bool has_mean_values = mean_values_.size() > 0;
+  const bool has_lab_colorspace = param_.lab_colorspace();
 
   CHECK_GT(datum_channels, 0);
   CHECK_GE(datum_height, crop_size);
@@ -74,6 +78,24 @@ void DataTransformer<Dtype>::Transform(const Datum& datum,
       }
     }
   }
+
+
+  Datum new_datum;
+  if (has_lab_colorspace) {
+	  CHECK_EQ(datum_channels, 3) << "For Lab Color Space it is needed 3 channels";
+#ifdef USE_OPENCV
+	  cv::Mat lab_mat(datum_height, datum_width, CV_8UC3);
+	  caffe_copy(data.size(), (unsigned int*) data.c_str(), (unsigned int*) lab_mat.data);
+	  cv::cvtColor(lab_mat, lab_mat, CV_BGR2Lab);
+	  CVMatToDatum(lab_mat, &new_datum);
+#else
+    LOG(FATAL) << "Change of Color Space requires OpenCV; compile with USE_OPENCV.";
+#endif
+  } else {
+	  new_datum = datum;
+  }
+
+  const string& new_data = new_datum.data();
 
   int height = datum_height;
   int width = datum_width;
@@ -106,7 +128,7 @@ void DataTransformer<Dtype>::Transform(const Datum& datum,
         }
         if (has_uint8) {
           datum_element =
-            static_cast<Dtype>(static_cast<uint8_t>(data[data_index]));
+            static_cast<Dtype>(static_cast<uint8_t>(new_data[data_index]));
         } else {
           datum_element = datum.float_data(data_index);
         }
@@ -270,9 +292,15 @@ void DataTransformer<Dtype>::Transform(const cv::Mat& cv_img,
     }
   }
 
+  cv::Mat cv_cropped_img = cv_img;
+
+  // If Transform to LAB colorspace is true
+  if (param_.lab_colorspace()) {
+  	cv::cvtColor(cv_cropped_img, cv_cropped_img, CV_BGR2Lab);
+  }
+
   int h_off = 0;
   int w_off = 0;
-  cv::Mat cv_cropped_img = cv_img;
   if (crop_size) {
     CHECK_EQ(crop_size, height);
     CHECK_EQ(crop_size, width);
