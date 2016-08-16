@@ -79,15 +79,22 @@ void DataTransformer<Dtype>::Transform(const Datum& datum,
     }
   }
 
-
   Datum new_datum;
   if (has_lab_colorspace) {
 	  CHECK_EQ(datum_channels, 3) << "For Lab Color Space it is needed 3 channels";
 #ifdef USE_OPENCV
 	  cv::Mat lab_mat(datum_height, datum_width, CV_8UC3);
-	  caffe_copy(data.size(), (unsigned int*) data.c_str(), (unsigned int*) lab_mat.data);
+	  memcpy((char*) lab_mat.data, data.c_str(), sizeof(char) * data.size());
 	  cv::cvtColor(lab_mat, lab_mat, CV_BGR2Lab);
 	  CVMatToDatum(lab_mat, &new_datum);
+
+	  if (has_mean_file) {
+		  cv::Mat mean_mat(datum_height, datum_width, CV_8UC3, mean);
+		  cv::cvtColor(mean_mat, mean_mat, CV_BGR2Lab);
+	  }
+	  if (has_mean_values) {
+		  cv::cvtColor(mean_values_, mean_values_, CV_BGR2Lab);
+	  }
 #else
     LOG(FATAL) << "Change of Color Space requires OpenCV; compile with USE_OPENCV.";
 #endif
@@ -296,7 +303,15 @@ void DataTransformer<Dtype>::Transform(const cv::Mat& cv_img,
 
   // If Transform to LAB colorspace is true
   if (param_.lab_colorspace()) {
-  	cv::cvtColor(cv_cropped_img, cv_cropped_img, CV_BGR2Lab);
+	  CHECK_EQ(img_channels, 3) << "For Lab Color Space it is needed 3 channels";
+	  cv::cvtColor(cv_cropped_img, cv_cropped_img, CV_BGR2Lab);
+	  if (has_mean_file) {
+		  cv::Mat mean_mat(img_height, img_width, CV_8UC3, mean);
+		  cv::cvtColor(mean_mat, mean_mat, CV_BGR2Lab);
+	  }
+	  if (has_mean_values) {
+		  cv::cvtColor(mean_values_, mean_values_, CV_BGR2Lab);
+	  }
   }
 
   int h_off = 0;
