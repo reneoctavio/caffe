@@ -36,6 +36,18 @@ void FillDatum(const int label, const int channels, const int height,
   }
 }
 
+void PrintMatrix(cv::Mat& mat) {
+	for (int i = 0; i < mat.rows; ++i) {
+		uchar* pixel = mat.ptr<uchar>(i);  // point to first color in row
+		for (int j = 0; j < mat.cols; ++j) {
+			for (int c = 0; c < 3; c++) {
+				std::cout << (int) *pixel++ << "\t";
+			}
+		}
+		std::cout << std::endl;
+	}
+}
+
 template <typename Dtype>
 class DataTransformTest : public ::testing::Test {
  protected:
@@ -359,13 +371,12 @@ TYPED_TEST(DataTransformTest, TestLabColorSpaceTrain) {
   Datum datum;
   FillDatum(label, channels, height, width, unique_pixels, &datum);
 
-  Datum new_datum;
-  const string& data = datum.data();
-  cv::Mat lab_mat(height, width, CV_8UC3);
+  cv::Mat cv_img(height, width, CV_8UC3);
+  DatumToCVMat3Channels(datum, &cv_img);
 
-  memcpy((char*) lab_mat.data, data.c_str(), sizeof(char) * data.size());
-  cv::cvtColor(lab_mat, lab_mat, CV_BGR2Lab);
-  CVMatToDatum(lab_mat, &new_datum);
+  Datum datum_out;
+  cv::cvtColor(cv_img, cv_img, CV_BGR2Lab);
+  CVMatToDatum(cv_img, &datum_out);
 
   Blob<TypeParam> blob(1, channels, height, width);
   DataTransformer<TypeParam> transformer(transform_param, TRAIN);
@@ -373,7 +384,7 @@ TYPED_TEST(DataTransformTest, TestLabColorSpaceTrain) {
   transformer.Transform(datum, &blob);
 
   for (int j = 0; j < blob.count(); ++j) {
-    EXPECT_EQ(blob.cpu_data()[j], (unsigned char) new_datum.data()[j]);
+    EXPECT_EQ(blob.cpu_data()[j], (unsigned char) datum_out.data()[j]);
   }
 }
 
@@ -389,26 +400,24 @@ TYPED_TEST(DataTransformTest, TestLabColorSpaceTest) {
   Datum datum;
   FillDatum(label, channels, height, width, unique_pixels, &datum);
 
-  Datum new_datum;
-  const string& data = datum.data();
-  cv::Mat lab_mat(height, width, CV_8UC3);
+  cv::Mat cv_img(height, width, CV_8UC3);
+  DatumToCVMat3Channels(datum, &cv_img);
 
-  memcpy((char*) lab_mat.data, data.c_str(), sizeof(char) * data.size());
-  cv::cvtColor(lab_mat, lab_mat, CV_BGR2Lab);
-  CVMatToDatum(lab_mat, &new_datum);
+  Datum datum_out;
+  cv::cvtColor(cv_img, cv_img, CV_BGR2Lab);
+  CVMatToDatum(cv_img, &datum_out);
 
   Blob<TypeParam> blob(1, channels, height, width);
-  DataTransformer<TypeParam> transformer(transform_param, TRAIN);
+  DataTransformer<TypeParam> transformer(transform_param, TEST);
   transformer.InitRand();
   transformer.Transform(datum, &blob);
 
   for (int j = 0; j < blob.count(); ++j) {
-    EXPECT_EQ(blob.cpu_data()[j], (unsigned char) new_datum.data()[j]);
+    EXPECT_EQ(blob.cpu_data()[j], (unsigned char) datum_out.data()[j]);
   }
 }
 
-
-TYPED_TEST(DataTransformTest, TestMeanFileLabColorSpace) {
+TYPED_TEST(DataTransformTest, TestLabColorSpaceMeanFile) {
   TransformationParameter transform_param;
   const bool unique_pixels = true;  // pixels are consecutive ints [0,size]
   const int label = 0;
@@ -446,6 +455,50 @@ TYPED_TEST(DataTransformTest, TestMeanFileLabColorSpace) {
   }
 }
 
+TYPED_TEST(DataTransformTest, TestLabColorSpaceMeanValue) {
+  TransformationParameter transform_param;
+  const bool unique_pixels = false;  // pixels are equal to label
+  const int label = 0;
+  const int channels = 3;
+  const int height = 4;
+  const int width = 5;
+  const int mean_value = 0;
+
+  transform_param.set_lab_colorspace(true);
+  transform_param.add_mean_value(mean_value);
+  Datum datum;
+  FillDatum(label, channels, height, width, unique_pixels, &datum);
+  Blob<TypeParam> blob(1, channels, height, width);
+  DataTransformer<TypeParam> transformer(transform_param, TEST);
+  transformer.InitRand();
+  transformer.Transform(datum, &blob);
+  for (int j = 0; j < blob.count(); ++j) {
+    EXPECT_EQ(blob.cpu_data()[j], 0);
+  }
+}
+
+TYPED_TEST(DataTransformTest, TestLabColorSpaceMeanValues) {
+  TransformationParameter transform_param;
+  const bool unique_pixels = false;  // pixels are equal to label
+  const int label = 0;
+  const int channels = 3;
+  const int height = 4;
+  const int width = 5;
+
+  transform_param.set_lab_colorspace(true);
+  transform_param.add_mean_value(0);
+  transform_param.add_mean_value(0);
+  transform_param.add_mean_value(0);
+  Datum datum;
+  FillDatum(label, channels, height, width, unique_pixels, &datum);
+  Blob<TypeParam> blob(1, channels, height, width);
+  DataTransformer<TypeParam> transformer(transform_param, TEST);
+  transformer.InitRand();
+  transformer.Transform(datum, &blob);
+  for (int j = 0; j < blob.count(); ++j) {
+    EXPECT_EQ(blob.cpu_data()[j], 0);
+  }
+}
 
 }  // namespace caffe
 #endif  // USE_OPENCV
