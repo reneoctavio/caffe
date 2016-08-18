@@ -142,6 +142,31 @@ class DataTransformer {
   // Tranformation parameters
   TransformationParameter param_;
 
+#ifdef USE_OPENCV
+  /**
+   * @brief Change the colorspace of incoming datum
+   *
+   * @param datum_in
+   *    A Datum containing the incoming image to be transformed.
+   *
+   * @param datum_out
+   *    A Datum containing the transformed image.
+   */
+  void ChangeColorspace(const Datum& datum_in,
+  		Datum* datum_out);
+  /**
+   * @brief Change the colorspace of incoming blob
+   *
+   * @param blob_in
+   *    A Blob containing the incoming image to be transformed.
+   *
+   * @param blob_out
+   *    A Blob containing the transformed image.
+   */
+  void ChangeColorspace(const Blob<Dtype>& blob_in,
+  		Blob<Dtype>* blob_out) ;
+#endif  // USE_OPENCV
+
 
   shared_ptr<Caffe::RNG> rng_;
   Phase phase_;

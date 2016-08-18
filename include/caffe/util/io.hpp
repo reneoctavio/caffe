@@ -145,6 +145,9 @@ cv::Mat DecodeDatumToCVMatNative(const Datum& datum);
 cv::Mat DecodeDatumToCVMat(const Datum& datum, bool is_color);
 
 void CVMatToDatum(const cv::Mat& cv_img, Datum* datum);
+
+void DatumToCVMat3Channels(const Datum& datum, cv::Mat* cv_img);
+void DatumDataToCVMat3Channels(const string& data, const int channels, const int height, const int width, cv::Mat* cv_img);
 #endif  // USE_OPENCV
 
 }  // namespace caffe
