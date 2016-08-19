@@ -355,7 +355,7 @@ TYPED_TEST(DataTransformTest, TestMeanFile) {
   }
 }
 
-TYPED_TEST(DataTransformTest, TestLabColorSpaceTrain) {
+TYPED_TEST(DataTransformTest, TestColorSpaceTrain) {
   TransformationParameter transform_param;
   const bool unique_pixels = true;  // pixels are consecutive ints [0,size]
   const int label = 0;
@@ -363,7 +363,7 @@ TYPED_TEST(DataTransformTest, TestLabColorSpaceTrain) {
   const int height = 4;
   const int width = 5;
 
-  transform_param.set_lab_colorspace(true);
+  transform_param.set_colorspace("LAB");
   Datum datum;
   FillDatum(label, channels, height, width, unique_pixels, &datum);
 
@@ -384,7 +384,7 @@ TYPED_TEST(DataTransformTest, TestLabColorSpaceTrain) {
   }
 }
 
-TYPED_TEST(DataTransformTest, TestLabColorSpaceTest) {
+TYPED_TEST(DataTransformTest, TestColorSpaceTest) {
   TransformationParameter transform_param;
   const bool unique_pixels = true;  // pixels are consecutive ints [0,size]
   const int label = 0;
@@ -392,7 +392,7 @@ TYPED_TEST(DataTransformTest, TestLabColorSpaceTest) {
   const int height = 4;
   const int width = 5;
 
-  transform_param.set_lab_colorspace(true);
+  transform_param.set_colorspace("YCrCb");
   Datum datum;
   FillDatum(label, channels, height, width, unique_pixels, &datum);
 
@@ -400,7 +400,7 @@ TYPED_TEST(DataTransformTest, TestLabColorSpaceTest) {
   DatumToCVMat3Channels(datum, &cv_img);
 
   Datum datum_out;
-  cv::cvtColor(cv_img, cv_img, CV_BGR2Lab);
+  cv::cvtColor(cv_img, cv_img, CV_BGR2YCrCb);
   CVMatToDatum(cv_img, &datum_out);
 
   Blob<TypeParam> blob(1, channels, height, width);
@@ -413,7 +413,7 @@ TYPED_TEST(DataTransformTest, TestLabColorSpaceTest) {
   }
 }
 
-TYPED_TEST(DataTransformTest, TestLabColorSpaceMeanFile) {
+TYPED_TEST(DataTransformTest, TestColorSpaceMeanFile) {
   TransformationParameter transform_param;
   const bool unique_pixels = true;  // pixels are consecutive ints [0,size]
   const int label = 0;
@@ -439,7 +439,7 @@ TYPED_TEST(DataTransformTest, TestLabColorSpaceMeanFile) {
   WriteProtoToBinaryFile(blob_mean, mean_file);
 
   transform_param.set_mean_file(mean_file);
-  transform_param.set_lab_colorspace(true);
+  transform_param.set_colorspace("HSV");
   Datum datum;
   FillDatum(label, channels, height, width, unique_pixels, &datum);
   Blob<TypeParam> blob(1, channels, height, width);
@@ -451,7 +451,7 @@ TYPED_TEST(DataTransformTest, TestLabColorSpaceMeanFile) {
   }
 }
 
-TYPED_TEST(DataTransformTest, TestLabColorSpaceMeanValue) {
+TYPED_TEST(DataTransformTest, TestColorSpaceMeanValue) {
   TransformationParameter transform_param;
   const bool unique_pixels = false;  // pixels are equal to label
   const int label = 0;
@@ -460,7 +460,7 @@ TYPED_TEST(DataTransformTest, TestLabColorSpaceMeanValue) {
   const int width = 5;
   const int mean_value = 0;
 
-  transform_param.set_lab_colorspace(true);
+  transform_param.set_colorspace("LUV");
   transform_param.add_mean_value(mean_value);
   Datum datum;
   FillDatum(label, channels, height, width, unique_pixels, &datum);
@@ -473,7 +473,7 @@ TYPED_TEST(DataTransformTest, TestLabColorSpaceMeanValue) {
   }
 }
 
-TYPED_TEST(DataTransformTest, TestLabColorSpaceMeanValues) {
+TYPED_TEST(DataTransformTest, TestColorSpaceMeanValues) {
   TransformationParameter transform_param;
   const bool unique_pixels = false;  // pixels are equal to label
   const int label = 0;
@@ -481,7 +481,7 @@ TYPED_TEST(DataTransformTest, TestLabColorSpaceMeanValues) {
   const int height = 4;
   const int width = 5;
 
-  transform_param.set_lab_colorspace(true);
+  transform_param.set_colorspace("XYZ");
   transform_param.add_mean_value(0);
   transform_param.add_mean_value(0);
   transform_param.add_mean_value(0);

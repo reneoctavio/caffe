@@ -17,6 +17,24 @@ template<typename Dtype>
 DataTransformer<Dtype>::DataTransformer(const TransformationParameter& param,
     Phase phase)
     : param_(param), phase_(phase) {
+  // check if colorspace is valid
+  if (param_.has_colorspace()) {
+    const string& colorspace = param.colorspace();
+    if (colorspace == "XYZ")
+      colorspace_code_ = CV_BGR2XYZ;
+    else if (colorspace == "YCrCb")
+      colorspace_code_ = CV_BGR2YCrCb;
+    else if (colorspace == "HSV")
+      colorspace_code_ = CV_BGR2HSV;
+    else if (colorspace == "HLS")
+      colorspace_code_ = CV_BGR2HLS;
+    else if (colorspace == "LAB")
+      colorspace_code_ = CV_BGR2Lab;
+    else if (colorspace == "LUV")
+      colorspace_code_ = CV_BGR2Luv;
+    else
+      LOG(ERROR) << "Invalid Colorspace (XYZ, YCrCb, HSV, HLS, LAB, LUV) only.";
+  }
   // check if we want to use mean_file
   if (param_.has_mean_file()) {
     CHECK_EQ(param_.mean_value_size(), 0) <<
@@ -28,6 +46,10 @@ DataTransformer<Dtype>::DataTransformer(const TransformationParameter& param,
     BlobProto blob_proto;
     ReadProtoFromBinaryFileOrDie(mean_file.c_str(), &blob_proto);
     data_mean_.FromProto(blob_proto);
+    // If colorspace, transform default mean to chosen colorspace
+    if (param_.has_colorspace()) {
+      ChangeColorspace(&data_mean_);
+    }
   }
   // check if we want to use mean_value
   if (param_.mean_value_size() > 0) {
@@ -41,22 +63,25 @@ DataTransformer<Dtype>::DataTransformer(const TransformationParameter& param,
 
 template<typename Dtype>
 void DataTransformer<Dtype>::ChangeColorspace(const Datum& datum_in,
-											  Datum* datum_out) {
-	CHECK_EQ(datum_in.channels(), 3) << "For Change of Color Space, it is needed 3 channels";
+											                        Datum* datum_out) {
+	CHECK_EQ(datum_in.channels(), 3) <<
+    "For Change of Color Space, it is needed 3 channels";
 #ifdef USE_OPENCV
 	cv::Mat cv_img;
 	DatumToCVMat3Channels(datum_in, &cv_img);
-	cv::cvtColor(cv_img, cv_img, CV_BGR2Lab);
+	cv::cvtColor(cv_img, cv_img, colorspace_code_);
 	CVMatToDatum(cv_img, datum_out);
 #else
-	LOG(FATAL) << "Change of Color Space requires OpenCV; compile with USE_OPENCV.";
+	LOG(FATAL) <<
+    "Change of Color Space requires OpenCV; compile with USE_OPENCV.";
 #endif
 }
 
 template<typename Dtype>
 void DataTransformer<Dtype>::ChangeColorspace(const Blob<Dtype>& blob_in,
-											  Blob<Dtype>* blob_out) {
-	CHECK_EQ(blob_in.channels(), 3) << "For Change of Color Space, it is needed 3 channels";
+											                        Blob<Dtype>* blob_out) {
+	CHECK_EQ(blob_in.channels(), 3)
+    << "For Change of Color Space, it is needed 3 channels";
 #ifdef USE_OPENCV
 	cv::Mat cv_img;
 
@@ -65,28 +90,61 @@ void DataTransformer<Dtype>::ChangeColorspace(const Blob<Dtype>& blob_in,
 		buffer[j] = blob_in.cpu_data()[j];
 	}
 
-	DatumDataToCVMat3Channels(buffer, blob_in.channels(), blob_in.height(), blob_in.width(), &cv_img);
-	cv::cvtColor(cv_img, cv_img, CV_BGR2Lab);
+	DatumDataToCVMat3Channels(buffer, blob_in.channels(),
+                            blob_in.height(), blob_in.width(), &cv_img);
+	cv::cvtColor(cv_img, cv_img, colorspace_code_);
 
 	Datum datum_out;
 	CVMatToDatum(cv_img, &datum_out);
 
 	blob_out->Reshape(blob_in.shape());
 	for (int j = 0; j < blob_in.count(); ++j) {
-		blob_out->mutable_cpu_data()[j] = static_cast<Dtype>(static_cast<uint8_t>(datum_out.data()[j]));
+		blob_out->mutable_cpu_data()[j] =
+      static_cast<Dtype>(static_cast<uint8_t>(datum_out.data()[j]));
 	}
 #else
-	LOG(FATAL) << "Change of Color Space requires OpenCV; compile with USE_OPENCV.";
+	LOG(FATAL) <<
+    "Change of Color Space requires OpenCV; compile with USE_OPENCV.";
+#endif
+}
+
+template<typename Dtype>
+void DataTransformer<Dtype>::ChangeColorspace(Blob<Dtype>* blob_in_out) {
+	CHECK_EQ(blob_in_out->channels(), 3) <<
+    "For Change of Color Space, it is needed 3 channels";
+#ifdef USE_OPENCV
+	cv::Mat cv_img;
+
+	std::string buffer(blob_in_out->count(), ' ');
+	for (int j = 0; j < blob_in_out->count(); ++j) {
+		buffer[j] = blob_in_out->cpu_data()[j];
+	}
+
+	DatumDataToCVMat3Channels(buffer, blob_in_out->channels(),
+                            blob_in_out->height(), blob_in_out->width(),
+                            &cv_img);
+	cv::cvtColor(cv_img, cv_img, colorspace_code_);
+
+	Datum datum_out;
+	CVMatToDatum(cv_img, &datum_out);
+
+	for (int j = 0; j < blob_in_out->count(); ++j) {
+		blob_in_out->mutable_cpu_data()[j] =
+      static_cast<Dtype>(static_cast<uint8_t>(datum_out.data()[j]));
+	}
+#else
+	LOG(FATAL)
+    << "Change of Color Space requires OpenCV; compile with USE_OPENCV.";
 #endif
 }
 
 template<typename Dtype>
 void DataTransformer<Dtype>::Transform(const Datum& datum,
                                        Dtype* transformed_data) {
-  const bool has_lab_colorspace = param_.lab_colorspace();
+  const bool has_colorspace = param_.has_colorspace();
 
   Datum datum_out;
-  if (has_lab_colorspace) {
+  if (has_colorspace) {
     ChangeColorspace(datum, &datum_out);
   } else {
     datum_out = datum;
@@ -109,17 +167,11 @@ void DataTransformer<Dtype>::Transform(const Datum& datum,
   CHECK_GE(datum_width, crop_size);
 
   Dtype* mean = NULL;
-  Blob<Dtype> blob_out;
   if (has_mean_file) {
-	CHECK_EQ(datum_channels, data_mean_.channels());
-	CHECK_EQ(datum_height, data_mean_.height());
-	CHECK_EQ(datum_width, data_mean_.width());
-    if (has_lab_colorspace) {
-      ChangeColorspace(data_mean_, &blob_out);
-      mean = blob_out.mutable_cpu_data();
-    } else {
-      mean = data_mean_.mutable_cpu_data();
-    }
+    CHECK_EQ(datum_channels, data_mean_.channels());
+	  CHECK_EQ(datum_height, data_mean_.height());
+	  CHECK_EQ(datum_width, data_mean_.width());
+    mean = data_mean_.mutable_cpu_data();
   }
 
   if (has_mean_values) {
@@ -131,16 +183,18 @@ void DataTransformer<Dtype>::Transform(const Datum& datum,
         mean_values_.push_back(mean_values_[0]);
       }
     }
-    if (has_lab_colorspace) {
-      CHECK(mean_values_.size() == 3) << "For Change of Color Space, It should have a value for each channel";
+    if (has_colorspace) {
+      CHECK(mean_values_.size() == 3) <<
+        "For Change of Color Space, It should have a value for each channel";
       cv::Mat buffer(1, 1, CV_8UC3);
-	  for (int j = 0; j < mean_values_.size(); ++j) {
-	    buffer.data[j] = mean_values_[j];
-	  }
-	  cv::cvtColor(buffer, buffer, CV_BGR2Lab);
-	  for (int j = 0; j < mean_values_.size(); ++j) {
-		  mean_values_[j] = static_cast<Dtype>(static_cast<uint8_t>(buffer.data[j]));
-	  }
+	    for (int j = 0; j < mean_values_.size(); ++j) {
+	      buffer.data[j] = mean_values_[j];
+	    }
+	    cv::cvtColor(buffer, buffer, colorspace_code_);
+	    for (int j = 0; j < mean_values_.size(); ++j) {
+		    mean_values_[j] =
+          static_cast<Dtype>(static_cast<uint8_t>(buffer.data[j]));
+	    }
     }
   }
 
@@ -293,18 +347,18 @@ void DataTransformer<Dtype>::Transform(const vector<cv::Mat> & mat_vector,
 template<typename Dtype>
 void DataTransformer<Dtype>::Transform(const cv::Mat& cv_img,
                                        Blob<Dtype>* transformed_blob) {
-  const bool has_lab_colorspace = param_.lab_colorspace();
+  const bool has_colorspace = param_.has_colorspace();
 
-  cv::Mat cv_img_out = cv_img;
-  if (has_lab_colorspace) {
-	CHECK_EQ(cv_img_out.channels(), 3) << "For Lab Color Space it is needed 3 channels";
-	cv::cvtColor(cv_img_out, cv_img_out, CV_BGR2Lab);
+  if (has_colorspace) {
+	  CHECK_EQ(cv_img.channels(), 3) <<
+      "For Color Space it is needed 3 channels";
+	  cv::cvtColor(cv_img, cv_img, colorspace_code_);
   }
 
   const int crop_size = param_.crop_size();
-  const int img_channels = cv_img_out.channels();
-  const int img_height = cv_img_out.rows;
-  const int img_width = cv_img_out.cols;
+  const int img_channels = cv_img.channels();
+  const int img_height = cv_img.rows;
+  const int img_width = cv_img.cols;
 
   // Check dimensions.
   const int channels = transformed_blob->channels();
@@ -317,7 +371,7 @@ void DataTransformer<Dtype>::Transform(const cv::Mat& cv_img,
   CHECK_LE(width, img_width);
   CHECK_GE(num, 1);
 
-  CHECK(cv_img_out.depth() == CV_8U) << "Image data type must be unsigned byte";
+  CHECK(cv_img.depth() == CV_8U) << "Image data type must be unsigned byte";
 
   const Dtype scale = param_.scale();
   const bool do_mirror = param_.mirror() && Rand(2);
@@ -329,17 +383,11 @@ void DataTransformer<Dtype>::Transform(const cv::Mat& cv_img,
   CHECK_GE(img_width, crop_size);
 
   Dtype* mean = NULL;
-  Blob<Dtype> blob_out;
   if (has_mean_file) {
-	CHECK_EQ(img_channels, data_mean_.channels());
-	CHECK_EQ(img_height, data_mean_.height());
-	CHECK_EQ(img_width, data_mean_.width());
-    if (has_lab_colorspace) {
-      ChangeColorspace(data_mean_, &blob_out);
-      mean = blob_out.mutable_cpu_data();
-    } else {
-      mean = data_mean_.mutable_cpu_data();
-    }
+    CHECK_EQ(img_channels, data_mean_.channels());
+	  CHECK_EQ(img_height, data_mean_.height());
+	  CHECK_EQ(img_width, data_mean_.width());
+    mean = data_mean_.mutable_cpu_data();
   }
   if (has_mean_values) {
     CHECK(mean_values_.size() == 1 || mean_values_.size() == img_channels) <<
@@ -350,22 +398,23 @@ void DataTransformer<Dtype>::Transform(const cv::Mat& cv_img,
         mean_values_.push_back(mean_values_[0]);
       }
     }
-    if (has_lab_colorspace) {
-      CHECK(mean_values_.size() == 3) << "For Change of Color Space, It should have a value for each channel";
+    if (has_colorspace) {
+      CHECK(mean_values_.size() == 3) <<
+        "For Change of Color Space, It should have a value for each channel";
       cv::Mat buffer(1, 1, CV_8UC3);
-	  for (int j = 0; j < mean_values_.size(); ++j) {
-	    buffer.data[j] = mean_values_[j];
-	  }
-	  cv::cvtColor(buffer, buffer, CV_BGR2Lab);
-	  for (int j = 0; j < mean_values_.size(); ++j) {
-		mean_values_[j] = buffer.data[j];
-	  }
+	    for (int j = 0; j < mean_values_.size(); ++j) {
+	      buffer.data[j] = mean_values_[j];
+	    }
+	    cv::cvtColor(buffer, buffer, colorspace_code_);
+	    for (int j = 0; j < mean_values_.size(); ++j) {
+		    mean_values_[j] = buffer.data[j];
+	    }
     }
   }
 
-  cv::Mat cv_cropped_img;
   int h_off = 0;
   int w_off = 0;
+  cv::Mat cv_cropped_img = cv_img;
   if (crop_size) {
     CHECK_EQ(crop_size, height);
     CHECK_EQ(crop_size, width);
@@ -378,7 +427,7 @@ void DataTransformer<Dtype>::Transform(const cv::Mat& cv_img,
       w_off = (img_width - crop_size) / 2;
     }
     cv::Rect roi(w_off, h_off, crop_size, crop_size);
-    cv_cropped_img = cv_img_out(roi);
+    cv_cropped_img = cv_img(roi);
   } else {
     CHECK_EQ(img_height, height);
     CHECK_EQ(img_width, width);

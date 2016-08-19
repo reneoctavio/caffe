@@ -242,27 +242,27 @@ void DatumToCVMat3Channels(const Datum& datum, cv::Mat* cv_img) {
   int mat_index = 0;
   for (int h = 0; h < datum.height(); ++h) {
     for (int w = 0; w < datum.width(); ++w) {
-	  for (int c = 0; c < 3; ++c) {
-		int datum_index = (c * datum.height() + h) * datum.width() + w;
-		cv_img->data[mat_index++] = static_cast<char>(data[datum_index]);
+	    for (int c = 0; c < 3; ++c) {
+		    int datum_index = (c * datum.height() + h) * datum.width() + w;
+		    cv_img->data[mat_index++] = static_cast<char>(data[datum_index]);
+	    }
 	  }
-	}
   }
 }
 
 void DatumDataToCVMat3Channels(const string& data, const int channels,
-							   const int height, const int width,
-							   cv::Mat* cv_img) {
+							                 const int height, const int width,
+							                 cv::Mat* cv_img) {
   CHECK(channels == 3) << "Image data type must have three channels";
   cv_img->create(height, width, CV_8UC3);
   int mat_index = 0;
   for (int h = 0; h < height; ++h) {
     for (int w = 0; w < width; ++w) {
-	  for (int c = 0; c < 3; ++c) {
-	    int datum_index = (c * height + h) * width + w;
-		cv_img->data[mat_index++] = static_cast<char>(data[datum_index]);
+	    for (int c = 0; c < 3; ++c) {
+	      int datum_index = (c * height + h) * width + w;
+		    cv_img->data[mat_index++] = static_cast<char>(data[datum_index]);
+	    }
 	  }
-	}
   }
 }
 

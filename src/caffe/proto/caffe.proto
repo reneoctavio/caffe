@@ -426,8 +426,8 @@ message TransformationParameter {
   optional bool force_color = 6 [default = false];
   // Force the decoded image to have 1 color channels.
   optional bool force_gray = 7 [default = false];
-  // Activate LAB Colorspace transform.
-  optional bool lab_colorspace = 99 [default = false];
+  // Activate Colorspace transform (XYZ, YCrCb, HSV, HLS, LAB, LUV).
+  optional string colorspace = 99;
 }
 
 // Message that stores parameters shared by loss layers
