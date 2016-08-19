@@ -152,8 +152,7 @@ class DataTransformer {
    * @param datum_out
    *    A Datum containing the transformed image.
    */
-  void ChangeColorspace(const Datum& datum_in,
-  		Datum* datum_out);
+  void ChangeColorspace(const Datum& datum_in, Datum* datum_out);
   /**
    * @brief Change the colorspace of incoming blob
    *
@@ -163,15 +162,23 @@ class DataTransformer {
    * @param blob_out
    *    A Blob containing the transformed image.
    */
-  void ChangeColorspace(const Blob<Dtype>& blob_in,
-  		Blob<Dtype>* blob_out) ;
-#endif  // USE_OPENCV
+  void ChangeColorspace(const Blob<Dtype>& blob_in, Blob<Dtype>* blob_out);
 
+  /**
+   * @brief Change the colorspace of incoming blob
+   *
+   * @param blob_in_out
+   *    A Blob containing the incoming image to be transformed.
+   *    And return the modified image
+   */
+  void ChangeColorspace(Blob<Dtype>* blob_in_out);
+#endif  // USE_OPENCV
 
   shared_ptr<Caffe::RNG> rng_;
   Phase phase_;
   Blob<Dtype> data_mean_;
   vector<Dtype> mean_values_;
+  int colorspace_code_;
 };
 
 }  // namespace caffe
