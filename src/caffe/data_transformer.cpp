@@ -15,7 +15,7 @@ namespace caffe {
 
 template<typename Dtype>
 DataTransformer<Dtype>::DataTransformer(const TransformationParameter& param,
-    Phase phase)
+                                      Phase phase)
     : param_(param), phase_(phase) {
   // check if colorspace is valid
   if (param_.has_colorspace()) {
@@ -63,7 +63,7 @@ DataTransformer<Dtype>::DataTransformer(const TransformationParameter& param,
 
 template<typename Dtype>
 void DataTransformer<Dtype>::ChangeColorspace(const Datum& datum_in,
-											                        Datum* datum_out) {
+                                      Datum* datum_out) {
 	CHECK_EQ(datum_in.channels(), 3) <<
     "For Change of Color Space, it is needed 3 channels";
 #ifdef USE_OPENCV
@@ -79,7 +79,7 @@ void DataTransformer<Dtype>::ChangeColorspace(const Datum& datum_in,
 
 template<typename Dtype>
 void DataTransformer<Dtype>::ChangeColorspace(const Blob<Dtype>& blob_in,
-											                        Blob<Dtype>* blob_out) {
+                                      Blob<Dtype>* blob_out) {
 	CHECK_EQ(blob_in.channels(), 3)
     << "For Change of Color Space, it is needed 3 channels";
 #ifdef USE_OPENCV
